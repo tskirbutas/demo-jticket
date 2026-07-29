@@ -1,0 +1,22 @@
+server:
+  port: 8090
+
+spring:
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: jdbc:postgresql://localhost:5433/jticket_eventdb
+    username: postgres
+    password: postgres
+
+  flyway:
+    enabled: true
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+      format_sql: true
+    show-sql: true
+    defer-datasource-initialization: true
+

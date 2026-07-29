@@ -1,0 +1,14 @@
+<project>
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>com.tskirbutas</groupId>
+	<artifactId>jticket</artifactId>
+	<version>1.0-SNAPSHOT</version>
+
+	<packaging>pom</packaging>
+
+	<modules>
+		<module>event-service</module>
+		<module>booking-service</module>
+	</modules>
+</project>

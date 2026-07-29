@@ -1,0 +1,11 @@
+spring:
+  sql:
+    init:
+      mode: always
+      data-locations: classpath:db/seed/dev_data.sql
+logging:
+  level:
+    org.springframework: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+    org.flywaydb: DEBUG
