@@ -3,10 +3,18 @@ package com.tskirbutas.jticket.bookingservice.booking;
 
 import jakarta.persistence.*;
 
+import java.time.Instant;
 import java.util.List;
 
+enum BookingStatus {
+    IN_PROGRESS,
+    CONFIRMED,
+    EXPIRED,
+    CANCELLED
+}
+
 @Entity
-@Table(name = "BOOKINGS")
+@Table(name = "bookings")
 class Booking {
 
     @Id
@@ -15,17 +23,20 @@ class Booking {
     @Column(name = "buyer_id")
     long buyerId;
 
-    //TODO: enum
-    String status;
+    @Enumerated(EnumType.STRING)
+    BookingStatus status;
+
+    @Column(name = "expires_at")
+    Instant expiresAt;
 
     Booking() {
 
     }
 
-    public Booking(long id, long buyerId, String status) {
-        this.id = id;
+    public Booking(long buyerId, BookingStatus status, Instant expiresAt) {
         this.buyerId = buyerId;
         this.status = status;
+        this.expiresAt = expiresAt;
     }
 
     public Booking(long id) {
@@ -48,17 +59,29 @@ class Booking {
         this.buyerId = buyerId;
     }
 
-    public String getStatus() {
+    public BookingStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(BookingStatus status) {
         this.status = status;
+    }
+
+    public Instant getExpiresAt() {
+        return expiresAt;
+    }
+
+    public void setExpiresAt(Instant expiresAt) {
+        this.expiresAt = expiresAt;
+    }
+
+    void expire() {
+        this.status = BookingStatus.EXPIRED;
     }
 }
 
-record CreateBookingRequest(List<Long> ticketIds, long buyerId) {
+record CreateBookingRequest(List<Long> ticketIds, Long buyerId) {
 };
 
-record ConfirmBookingRequest(long bookingId, Object paymentDetails) {
+record CreateBookingResponse(long bookingId, List<BookingItem> bookingItems) {
 };

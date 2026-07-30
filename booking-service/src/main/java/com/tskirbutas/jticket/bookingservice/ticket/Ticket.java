@@ -4,10 +4,9 @@ package com.tskirbutas.jticket.bookingservice.ticket;
 import jakarta.persistence.*;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 
 @Entity
-@Table(name = "TICKETS")
+@Table(name = "tickets")
 public class Ticket {
 
     @Id
@@ -21,23 +20,18 @@ public class Ticket {
 
     BigDecimal price;
 
-    String status;
-
-    //TODO: reserved could be handled in booking
-    @Column(name = "reserved_until")
-    Instant reservedUntil;
+    @Enumerated(EnumType.STRING)
+    TicketStatus status;
 
 
-    Ticket() {
+    public Ticket() {
     }
 
-    Ticket(long id, long eventId, String seat, BigDecimal price, String status, Instant reservedUntil) {
-        this.id = id;
+    public Ticket(long eventId, String seat, BigDecimal price, TicketStatus status) {
         this.eventId = eventId;
         this.seat = seat;
         this.price = price;
         this.status = status;
-        this.reservedUntil = reservedUntil;
     }
 
     public long getId() {
@@ -72,19 +66,19 @@ public class Ticket {
         this.price = price;
     }
 
-    public String getStatus() {
+    public TicketStatus getStatus() {
         return status;
     }
 
-    public void setStatus(String status) {
+    public void setStatus(TicketStatus status) {
         this.status = status;
     }
 
-    public Instant getReservedUntil() {
-        return reservedUntil;
+    public void reserve() {
+        this.status = TicketStatus.RESERVED;
     }
 
-    public void setReservedUntil(Instant reservedUntil) {
-        this.reservedUntil = reservedUntil;
+    public void makeAvailable() {
+        this.status = TicketStatus.AVAILABLE;
     }
 }

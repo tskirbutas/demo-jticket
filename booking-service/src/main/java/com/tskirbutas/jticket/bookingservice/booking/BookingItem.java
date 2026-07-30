@@ -23,8 +23,7 @@ class BookingItem {
     BookingItem() {
     }
 
-    BookingItem(long id, Booking booking, Ticket ticket) {
-        this.id = id;
+    BookingItem(Booking booking, Ticket ticket) {
         this.booking = booking;
         this.ticket = ticket;
     }

@@ -1,9 +1,6 @@
 package com.tskirbutas.jticket.bookingservice.ticket;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -26,6 +23,11 @@ class TicketController {
     @GetMapping
     List<Ticket> findAllTickets() {
         return ticketRepository.findAll();
+    }
+
+    @GetMapping(params = "status")
+    List<Ticket> findAllByStatus(@RequestParam("status") TicketStatus status) {
+        return ticketRepository.findAllByStatus(status);
     }
 
     @GetMapping("/{id}")

@@ -1,18 +1,18 @@
-INSERT INTO bookings (id, buyer_id, status)
+INSERT INTO bookings (id, buyer_id, status, expires_at)
 VALUES
-    (1, 5,'BOOKED'),
-    (2, 6,'IN-PROGRESS')
+    (1, 5,'CONFIRMED', null),
+    (2, 6,'IN_PROGRESS', (now() + interval '15 minutes'))
 ON CONFLICT DO NOTHING;
 
 INSERT INTO tickets (id, event_id, seat, status, price)
 VALUES
-    (1, 1, 'A1', 'BOOKED',    50.00),
-    (2, 1, 'A2', 'BOOKED',    50.00),
+    (1, 1, 'A1', 'SOLD',    50.00),
+    (2, 1, 'A2', 'SOLD',    50.00),
     (3, 1, 'A3', 'AVAILABLE', 50.00),
     (4, 1, 'A4', 'AVAILABLE', 50.00),
     (5, 1, 'A5', 'AVAILABLE', 50.00),
     (6, 1, 'A6', 'AVAILABLE', 50.00),
-    (7, 1, 'A7', 'BOOKED', 50.00),
+    (7, 1, 'A7', 'RESERVED', 50.00),
     (8, 1, 'A8', 'AVAILABLE', 50.00)
 ON CONFLICT DO NOTHING;
 

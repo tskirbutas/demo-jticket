@@ -1,9 +1,10 @@
 package com.tskirbutas.jticket.bookingservice.booking;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import com.tskirbutas.jticket.bookingservice.ticket.TicketUnavailableException;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.ErrorResponse;
+import org.springframework.web.ErrorResponseException;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -11,26 +12,41 @@ import java.util.List;
 @RequestMapping("/booking")
 class BookingController {
 
-    private BookingRepository bookingRepository;
-    private BookingItemRepository bookingItemRepository;
+    private BookingService bookingService;
 
-    BookingController(BookingRepository bookingRepository, BookingItemRepository bookingItemRepository) {
-        this.bookingRepository = bookingRepository;
-        this.bookingItemRepository = bookingItemRepository;
+    BookingController(BookingService bookingService) {
+        this.bookingService = bookingService;
     }
 
     @GetMapping
     List<Booking> findAllBookings() {
-        return bookingRepository.findAll();
+        return bookingService.findAll();
     }
 
     @GetMapping("/{id}")
     Booking findBookingById(@PathVariable long id) {
-        return bookingRepository.findById(id).orElse(null);
+        return bookingService.findBookingById(id);
     }
 
     @GetMapping("/{id}/items")
     List<BookingItem> findBookingItemsById(@PathVariable long id) {
-        return bookingItemRepository.findByBookingId(id);
+        return bookingService.findByBookingId(id);
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    CreateBookingResponse createBooking(@RequestBody CreateBookingRequest bookingRequest) {
+        return bookingService.createBooking(bookingRequest);
+    }
+
+    @ExceptionHandler(TicketUnavailableException.class)
+    public ErrorResponse handleTicketUnavailable(
+            TicketUnavailableException e) {
+        return new ErrorResponseException(HttpStatus.CONFLICT, e);
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    public ErrorResponse handleBadRequest(BadRequestException e) {
+        return new ErrorResponseException(HttpStatus.BAD_REQUEST, e);
     }
 }
