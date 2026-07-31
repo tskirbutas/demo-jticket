@@ -1,5 +1,6 @@
 package com.tskirbutas.jticket.bookingservice.booking;
 
+import com.tskirbutas.jticket.bookingservice.payment.*;
 import com.tskirbutas.jticket.bookingservice.ticket.Ticket;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketRepository;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketStatus;
@@ -15,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -22,6 +24,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static com.tskirbutas.jticket.bookingservice.payment.PaymentWebhookController.WEBHOOK_FAKE_PAYMENT_PROCESSOR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -49,11 +52,15 @@ public class BookingServiceIntegrationTest {
     @Autowired
     private BookingItemRepository bookingItemRepository;
 
+    @Autowired
+    private PaymentRepository paymentRepository;
+
     @AfterEach
     void cleanUp() {
-        bookingItemRepository.deleteAll();
-        bookingRepository.deleteAll();
-        ticketRepository.deleteAll();
+        paymentRepository.deleteAllInBatch();
+        bookingItemRepository.deleteAllInBatch();
+        bookingRepository.deleteAllInBatch();
+        ticketRepository.deleteAllInBatch();
     }
 
 
@@ -126,7 +133,7 @@ public class BookingServiceIntegrationTest {
         mockMvc.perform(post("/booking")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(requestContent)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isNotFound());
 
         //validate bookings
         var bookings = bookingRepository.findAll();
@@ -192,8 +199,7 @@ public class BookingServiceIntegrationTest {
                 long userId = i;
                 executor.submit(() -> {
                     try {
-                        // all threads line up here first, so they hit
-                        // createBooking at roughly the same instant
+                        // all threads line up here first, so they hit createBooking at roughly the same instant
                         readyLatch.countDown();
                         startLatch.await();
 
@@ -226,4 +232,55 @@ public class BookingServiceIntegrationTest {
         assertThat(bookings).hasSize(1);
         assertThat(bookings.get(0).getStatus()).isEqualTo(BookingStatus.IN_PROGRESS);
     }
+
+    @Test
+    void postBookingPay_regularFlow_shouldSellTickets() throws Exception {
+        var t1 = ticketRepository.save(new Ticket(1, "A1", BigDecimal.valueOf(44.99), TicketStatus.RESERVED));
+        var t2 = ticketRepository.save(new Ticket(1, "A2", BigDecimal.valueOf(44.99), TicketStatus.RESERVED));
+        var t3 = ticketRepository.save(new Ticket(1, "A3", BigDecimal.valueOf(44.99), TicketStatus.AVAILABLE));
+
+        var buyerId = 123L;
+        var booking = bookingRepository.save(new Booking(buyerId, BookingStatus.IN_PROGRESS, Instant.now().plusSeconds(60 * 15)));
+        bookingItemRepository.save(new BookingItem(booking, t1));
+        bookingItemRepository.save(new BookingItem(booking, t2));
+
+        var bookingId = booking.getId();
+        var requestContent = new PayForBookingRequest(new PaymentDetails());
+
+        mockMvc.perform(post(String.format("/booking/%s/pay", bookingId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestContent)))
+                .andExpect(status().isOk());
+
+        //validate bookings
+        var bookings = bookingRepository.findAll();
+        assertThat(bookings).hasSize(1);
+        assertThat(bookings.get(0).getStatus()).isEqualTo(BookingStatus.PAYMENT_INITIALIZED);
+
+        //validate payments
+        var payments = paymentRepository.findAll();
+        assertThat(payments).hasSize(1);
+        var payment = payments.get(0);
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.IN_PROGRESS);
+
+        var webhookRequest = new PaymentProcessingCompletedRequest(payment.getId(), true, null);
+        mockMvc.perform(post(WEBHOOK_FAKE_PAYMENT_PROCESSOR)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(webhookRequest)))
+                .andExpect(status().isOk());
+
+        //validate payments
+        payments = paymentRepository.findAll();
+        assertThat(payments).hasSize(1);
+        assertThat(payments.get(0).getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
+
+        //validate ticket statuses
+        t1 = ticketRepository.findById(t1.getId()).orElseThrow();
+        assertThat(t1.getStatus()).isEqualTo(TicketStatus.SOLD);
+        t2 = ticketRepository.findById(t2.getId()).orElseThrow();
+        assertThat(t2.getStatus()).isEqualTo(TicketStatus.SOLD);
+        t3 = ticketRepository.findById(t3.getId()).orElseThrow();
+        assertThat(t3.getStatus()).isEqualTo(TicketStatus.AVAILABLE);
+    }
+
 }

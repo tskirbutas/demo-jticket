@@ -1,5 +1,7 @@
 package com.tskirbutas.jticket.bookingservice.booking;
 
+import com.tskirbutas.jticket.bookingservice.BadRequestException;
+import com.tskirbutas.jticket.bookingservice.NotFoundException;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketUnavailableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.ErrorResponse;
@@ -12,7 +14,7 @@ import java.util.List;
 @RequestMapping("/booking")
 class BookingController {
 
-    private BookingService bookingService;
+    final BookingService bookingService;
 
     BookingController(BookingService bookingService) {
         this.bookingService = bookingService;
@@ -38,6 +40,10 @@ class BookingController {
     CreateBookingResponse createBooking(@RequestBody CreateBookingRequest bookingRequest) {
         return bookingService.createBooking(bookingRequest);
     }
+    @PostMapping("/{id}/pay")
+    PayForBookingResponse payForBooking(@PathVariable long id, @RequestBody PayForBookingRequest payRequest) {
+        return bookingService.payForBooking(id, payRequest.paymentDetails());
+    }
 
     @ExceptionHandler(TicketUnavailableException.class)
     public ErrorResponse handleTicketUnavailable(
@@ -48,5 +54,10 @@ class BookingController {
     @ExceptionHandler(BadRequestException.class)
     public ErrorResponse handleBadRequest(BadRequestException e) {
         return new ErrorResponseException(HttpStatus.BAD_REQUEST, e);
+    }
+
+    @ExceptionHandler(NotFoundException.class)
+    public ErrorResponse handleNotFound(NotFoundException e) {
+        return new ErrorResponseException(HttpStatus.NOT_FOUND, e);
     }
 }

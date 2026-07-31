@@ -1,9 +1,14 @@
 package com.tskirbutas.jticket.bookingservice.booking;
 
+import com.tskirbutas.jticket.bookingservice.BadRequestException;
+import com.tskirbutas.jticket.bookingservice.NotFoundException;
+import com.tskirbutas.jticket.bookingservice.payment.PaymentDetails;
+import com.tskirbutas.jticket.bookingservice.payment.PaymentService;
 import com.tskirbutas.jticket.bookingservice.ticket.Ticket;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketRepository;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketStatus;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketUnavailableException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,18 +16,24 @@ import java.time.Instant;
 import java.util.List;
 
 @Service
-public class BookingService {
-    //TODO: move reservation period to config
-    public static final int RESERVATION_PERIOD_IN_SECONDS = 60 * 15;
+class BookingService {
 
-    private TicketRepository ticketRepository;
-    private BookingRepository bookingRepository;
-    private BookingItemRepository bookingItemRepository;
+    final TicketRepository ticketRepository;
+    final BookingRepository bookingRepository;
+    final BookingItemRepository bookingItemRepository;
+    final PaymentService paymentService;
 
-    BookingService(TicketRepository ticketRepository, BookingRepository bookingRepository, BookingItemRepository bookingItemRepository) {
+    @Value("${app.reservation-period-seconds}")
+    int reservationPeriodInSeconds;
+
+    BookingService(TicketRepository ticketRepository,
+                   BookingRepository bookingRepository,
+                   BookingItemRepository bookingItemRepository,
+                   PaymentService paymentService) {
         this.ticketRepository = ticketRepository;
         this.bookingRepository = bookingRepository;
         this.bookingItemRepository = bookingItemRepository;
+        this.paymentService = paymentService;
     }
 
     List<Booking> findAll() {
@@ -50,7 +61,7 @@ public class BookingService {
 
         //Client sent ticket ids that we cannot find
         if (tickets.size() != bookingRequest.ticketIds().size()) {
-            throw new BadRequestException(); //TODO: Could be HTTP.NOT_FOUND with some data
+            throw new NotFoundException("One or more tickets not found");
         }
 
         //Check if available
@@ -66,7 +77,7 @@ public class BookingService {
         Booking booking = new Booking();
         booking.setBuyerId(bookingRequest.buyerId());
         booking.setStatus(BookingStatus.IN_PROGRESS);
-        booking.setExpiresAt(Instant.now().plusSeconds(RESERVATION_PERIOD_IN_SECONDS));
+        booking.setExpiresAt(Instant.now().plusSeconds(reservationPeriodInSeconds));
         Booking savedBooking = bookingRepository.save(booking);
 
         //Create booking items
@@ -96,6 +107,37 @@ public class BookingService {
         List<BookingItem> expiredBookingItems = bookingItemRepository.findWithTicketByBookingIdIn(expiredBookings.stream().map(Booking::getId).toList());
         for (BookingItem bookingItem : expiredBookingItems) {
             bookingItem.getTicket().makeAvailable();
+        }
+    }
+
+    @Transactional
+    PayForBookingResponse payForBooking(long bookingId, PaymentDetails paymentDetails) {
+        var booking = bookingRepository.findByIdForUpdate(bookingId)
+                .orElseThrow(() -> new NotFoundException(String.format("Booking %s not found", bookingId)));
+
+        if (booking.status != BookingStatus.IN_PROGRESS) {
+            throw new BadRequestException();
+        }
+
+        var result = paymentService.initPaymentProcessing(bookingId, paymentDetails);
+        if (result.paymentId() != null) {
+            booking.paymentInitialized();
+        }
+
+        return new PayForBookingResponse(result.paymentId(), result.failureReason());
+    }
+
+    @Transactional
+    public void paymentForBookingProcessed(long bookingId, boolean success) {
+        var booking = bookingRepository.findByIdForUpdate(bookingId)
+                .orElseThrow(() -> new NotFoundException(String.format("Booking %s not found", bookingId)));
+        if (success) {
+            booking.paymentSucceeded();
+            bookingItemRepository.findWithTicketByBookingIdForUpdate(booking.getId())
+                    .stream().map(BookingItem::getTicket).forEach(Ticket::sold);
+            //send email
+        } else {
+            //Do nothing -- allow to retry the payment
         }
     }
 }

@@ -1,0 +1,18 @@
+package com.tskirbutas.jticket.bookingservice.booking;
+
+import com.tskirbutas.jticket.bookingservice.payment.PaymentDetails;
+import jakarta.annotation.Nullable;
+
+import java.util.List;
+
+record CreateBookingRequest(List<Long> ticketIds, Long buyerId) {
+};
+
+record CreateBookingResponse(long bookingId, List<BookingItem> bookingItems) {
+};
+
+record PayForBookingRequest(PaymentDetails paymentDetails) {
+}
+
+record PayForBookingResponse(Long paymentId, @Nullable String failureReason) {
+}

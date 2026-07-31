@@ -81,4 +81,8 @@ public class Ticket {
     public void makeAvailable() {
         this.status = TicketStatus.AVAILABLE;
     }
+
+    public void sold() {
+        this.status = TicketStatus.SOLD;
+    }
 }

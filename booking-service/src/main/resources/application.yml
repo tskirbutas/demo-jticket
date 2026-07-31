@@ -1,3 +1,10 @@
+server:
+  port: 8080
+
+app:
+  base-url: ${APP_BASE_URL:http://localhost:${server.port}}
+  reservation-period-seconds: ${APP.RESERVATION_PERIOD_SECONDS:900}
+
 spring:
   threads:
     virtual:
@@ -16,4 +23,3 @@ spring:
       format_sql: true
     show-sql: true
     defer-datasource-initialization: true
-

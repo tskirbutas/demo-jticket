@@ -5,7 +5,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
-    TODO:
     There is little real purpose to expose ticket read operations via REST.
     While write operations could be done via some admin console and would justify the endpoints,
     an admin could batch insert the tickets directly into db.
@@ -14,7 +13,7 @@ import java.util.List;
 @RequestMapping("/ticket")
 class TicketController {
 
-    private TicketRepository ticketRepository;
+    final TicketRepository ticketRepository;
 
     TicketController(TicketRepository ticketRepository) {
         this.ticketRepository = ticketRepository;

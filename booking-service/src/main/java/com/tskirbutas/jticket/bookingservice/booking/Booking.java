@@ -4,14 +4,6 @@ package com.tskirbutas.jticket.bookingservice.booking;
 import jakarta.persistence.*;
 
 import java.time.Instant;
-import java.util.List;
-
-enum BookingStatus {
-    IN_PROGRESS,
-    CONFIRMED,
-    EXPIRED,
-    CANCELLED
-}
 
 @Entity
 @Table(name = "bookings")
@@ -33,7 +25,7 @@ class Booking {
 
     }
 
-    public Booking(long buyerId, BookingStatus status, Instant expiresAt) {
+    Booking(long buyerId, BookingStatus status, Instant expiresAt) {
         this.buyerId = buyerId;
         this.status = status;
         this.expiresAt = expiresAt;
@@ -78,10 +70,8 @@ class Booking {
     void expire() {
         this.status = BookingStatus.EXPIRED;
     }
+
+    void paymentInitialized() { this.status = BookingStatus.PAYMENT_INITIALIZED; }
+
+    void paymentSucceeded() { this.status = BookingStatus.PAYMENT_SUCCEEDED; }
 }
-
-record CreateBookingRequest(List<Long> ticketIds, Long buyerId) {
-};
-
-record CreateBookingResponse(long bookingId, List<BookingItem> bookingItems) {
-};

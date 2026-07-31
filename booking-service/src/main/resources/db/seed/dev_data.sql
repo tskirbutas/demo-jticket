@@ -1,6 +1,6 @@
 INSERT INTO bookings (id, buyer_id, status, expires_at)
 VALUES
-    (1, 5,'CONFIRMED', null),
+    (1, 5,'PAYMENT_SUCCEEDED', null),
     (2, 6,'IN_PROGRESS', (now() + interval '15 minutes'))
 ON CONFLICT DO NOTHING;
 

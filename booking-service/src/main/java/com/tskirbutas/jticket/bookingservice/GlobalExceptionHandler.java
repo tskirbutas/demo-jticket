@@ -11,6 +11,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ErrorResponse handleUnexpectedException(Exception e) {
         //TODO: log
+        System.out.println("GlobalExceptionHandler:");
+        System.out.println(e);
         return new ErrorResponseException(HttpStatus.INTERNAL_SERVER_ERROR, new RuntimeException("Unexpected error occurred."));
     }
 }
