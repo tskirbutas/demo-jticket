@@ -5,6 +5,9 @@ import com.tskirbutas.jticket.bookingservice.ticket.Ticket;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketRepository;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketStatus;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketUnavailableException;
+import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,12 +15,18 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.context.ImportTestcontainers;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
+import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.testcontainers.kafka.KafkaContainer;
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -54,6 +63,9 @@ public class BookingServiceIntegrationTest {
 
     @Autowired
     private PaymentRepository paymentRepository;
+
+    @Autowired
+    private KafkaContainer kafka;
 
     @AfterEach
     void cleanUp() {
@@ -281,6 +293,29 @@ public class BookingServiceIntegrationTest {
         assertThat(t2.getStatus()).isEqualTo(TicketStatus.SOLD);
         t3 = ticketRepository.findById(t3.getId()).orElseThrow();
         assertThat(t3.getStatus()).isEqualTo(TicketStatus.AVAILABLE);
+
+        //validate kafka message published
+        try(var kafkaConsumer = createTestKafkaConsumer(PaymentSucceededKafkaMessage.class)) {
+            kafkaConsumer.subscribe(List.of(PaymentKafkaEventPublisher.TOPIC));
+
+            var record = KafkaTestUtils.getSingleRecord(kafkaConsumer, PaymentKafkaEventPublisher.TOPIC);
+            assertThat(record.value().paymentId()).isEqualTo(payment.getId());
+        }
     }
 
+    <T> Consumer<String, T> createTestKafkaConsumer(Class<T> valueDefaultType) {
+         var props = new HashMap<String, Object>();
+
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, "test-" + UUID.randomUUID());
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JacksonJsonDeserializer.class);
+        props.put(JacksonJsonDeserializer.TRUSTED_PACKAGES, "*");
+        props.put(JacksonJsonDeserializer.VALUE_DEFAULT_TYPE, valueDefaultType.getName());
+
+        var factory = new DefaultKafkaConsumerFactory<String, T>(props);
+        return factory.createConsumer();
+    }
 }

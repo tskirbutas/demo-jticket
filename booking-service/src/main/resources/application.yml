@@ -23,3 +23,10 @@ spring:
       format_sql: true
     show-sql: true
     defer-datasource-initialization: true
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      acks: all
