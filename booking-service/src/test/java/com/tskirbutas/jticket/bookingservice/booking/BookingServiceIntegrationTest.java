@@ -5,6 +5,8 @@ import com.tskirbutas.jticket.bookingservice.ticket.Ticket;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketRepository;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketStatus;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketUnavailableException;
+import com.tskirbutas.jticket.core.messaging.BookingPaymentSucceededMessage;
+import com.tskirbutas.jticket.core.messaging.kafka.KafkaConstants;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -81,7 +83,7 @@ public class BookingServiceIntegrationTest {
         var t1 = ticketRepository.save(new Ticket(1, "A1", BigDecimal.valueOf(44.99), TicketStatus.AVAILABLE));
         var t2 = ticketRepository.save(new Ticket(1, "A2", BigDecimal.valueOf(44.99), TicketStatus.AVAILABLE));
         var t3 = ticketRepository.save(new Ticket(1, "A3", BigDecimal.valueOf(44.99), TicketStatus.AVAILABLE));
-        var requestContent = new CreateBookingRequest(List.of(t1.getId(), t2.getId()), 123L);
+        var requestContent = new CreateBookingRequest(List.of(t1.getId(), t2.getId()), "buyer123@demo.com");
 
         mockMvc.perform(post("/booking")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -111,7 +113,7 @@ public class BookingServiceIntegrationTest {
         var t1 = ticketRepository.save(new Ticket(1, "A1", BigDecimal.valueOf(44.99), TicketStatus.AVAILABLE));
         var t2 = ticketRepository.save(new Ticket(1, "A2", BigDecimal.valueOf(44.99), TicketStatus.RESERVED));
         var t3 = ticketRepository.save(new Ticket(1, "A3", BigDecimal.valueOf(44.99), TicketStatus.AVAILABLE));
-        var requestContent = new CreateBookingRequest(List.of(t1.getId(), t2.getId(), t3.getId()), 123L);
+        var requestContent = new CreateBookingRequest(List.of(t1.getId(), t2.getId(), t3.getId()), "buyer123@demo.com");
 
         mockMvc.perform(post("/booking")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -140,7 +142,7 @@ public class BookingServiceIntegrationTest {
         var t1 = ticketRepository.save(new Ticket(1, "A1", BigDecimal.valueOf(44.99), TicketStatus.AVAILABLE));
         var t2 = ticketRepository.save(new Ticket(1, "A2", BigDecimal.valueOf(44.99), TicketStatus.AVAILABLE));
         var t3 = ticketRepository.save(new Ticket(1, "A3", BigDecimal.valueOf(44.99), TicketStatus.AVAILABLE));
-        var requestContent = new CreateBookingRequest(List.of(t1.getId(), t2.getId(), -123456L), 123L);
+        var requestContent = new CreateBookingRequest(List.of(t1.getId(), t2.getId(), -123456L), "buyer123@demo.com");
 
         mockMvc.perform(post("/booking")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -208,14 +210,14 @@ public class BookingServiceIntegrationTest {
 
         try(ExecutorService executor = Executors.newFixedThreadPool(numberOfAttempts)) {
             for (int i = 0; i < numberOfAttempts; i++) {
-                long userId = i;
+                String buyerEmail = String.format("buyer%d@demo.com",i);
                 executor.submit(() -> {
                     try {
                         // all threads line up here first, so they hit createBooking at roughly the same instant
                         readyLatch.countDown();
                         startLatch.await();
 
-                        bookingService.createBooking(new CreateBookingRequest(List.of(contestedTicketId), userId));
+                        bookingService.createBooking(new CreateBookingRequest(List.of(contestedTicketId), buyerEmail));
                         successCount.incrementAndGet();
                     } catch (TicketUnavailableException e) {
                         failureCount.incrementAndGet();
@@ -251,8 +253,8 @@ public class BookingServiceIntegrationTest {
         var t2 = ticketRepository.save(new Ticket(1, "A2", BigDecimal.valueOf(44.99), TicketStatus.RESERVED));
         var t3 = ticketRepository.save(new Ticket(1, "A3", BigDecimal.valueOf(44.99), TicketStatus.AVAILABLE));
 
-        var buyerId = 123L;
-        var booking = bookingRepository.save(new Booking(buyerId, BookingStatus.IN_PROGRESS, Instant.now().plusSeconds(60 * 15)));
+        var buyerEmail = "buyer123@demo.com";
+        var booking = bookingRepository.save(new Booking(buyerEmail, BookingStatus.IN_PROGRESS, Instant.now().plusSeconds(60 * 15)));
         bookingItemRepository.save(new BookingItem(booking, t1));
         bookingItemRepository.save(new BookingItem(booking, t2));
 
@@ -295,10 +297,10 @@ public class BookingServiceIntegrationTest {
         assertThat(t3.getStatus()).isEqualTo(TicketStatus.AVAILABLE);
 
         //validate kafka message published
-        try(var kafkaConsumer = createTestKafkaConsumer(PaymentSucceededKafkaMessage.class)) {
-            kafkaConsumer.subscribe(List.of(PaymentKafkaEventPublisher.TOPIC));
+        try(var kafkaConsumer = createTestKafkaConsumer(BookingPaymentSucceededMessage.class)) {
+            kafkaConsumer.subscribe(List.of(KafkaConstants.TOPIC_BOOKING_PAYMENT_SUCCEEDED));
 
-            var record = KafkaTestUtils.getSingleRecord(kafkaConsumer, PaymentKafkaEventPublisher.TOPIC);
+            var record = KafkaTestUtils.getSingleRecord(kafkaConsumer, KafkaConstants.TOPIC_BOOKING_PAYMENT_SUCCEEDED);
             assertThat(record.value().paymentId()).isEqualTo(payment.getId());
         }
     }

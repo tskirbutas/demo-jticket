@@ -15,6 +15,6 @@ class BookingPaymentEventListener {
 
     @EventListener
     public void onPaymentCompleted(PaymentCompletedEvent event) {
-        bookingService.paymentForBookingProcessed(event.bookingId(), event.success());
+        bookingService.paymentForBookingProcessed(event.bookingId(), event.success(), event.failureReason(), event.paymentId());
     }
 }

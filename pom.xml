@@ -8,6 +8,7 @@
 	<packaging>pom</packaging>
 
 	<modules>
+		<module>jticket-core</module>
 		<module>event-service</module>
 		<module>booking-service</module>
 	</modules>

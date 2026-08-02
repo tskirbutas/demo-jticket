@@ -8,6 +8,7 @@ import com.tskirbutas.jticket.bookingservice.ticket.Ticket;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketRepository;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketStatus;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketUnavailableException;
+import com.tskirbutas.jticket.core.messaging.BookingPaymentSucceededMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ class BookingService {
     final BookingRepository bookingRepository;
     final BookingItemRepository bookingItemRepository;
     final PaymentService paymentService;
+    final BookingMessagePublisher bookingMessagePublisher;
 
     @Value("${app.reservation-period-seconds}")
     int reservationPeriodInSeconds;
@@ -29,11 +31,13 @@ class BookingService {
     BookingService(TicketRepository ticketRepository,
                    BookingRepository bookingRepository,
                    BookingItemRepository bookingItemRepository,
-                   PaymentService paymentService) {
+                   PaymentService paymentService,
+                   BookingMessagePublisher bookingMessagePublisher) {
         this.ticketRepository = ticketRepository;
         this.bookingRepository = bookingRepository;
         this.bookingItemRepository = bookingItemRepository;
         this.paymentService = paymentService;
+        this.bookingMessagePublisher = bookingMessagePublisher;
     }
 
     List<Booking> findAll() {
@@ -53,7 +57,7 @@ class BookingService {
         if (bookingRequest.ticketIds().isEmpty()) {
             throw new BadRequestException();
         }
-        if (bookingRequest.buyerId() == null) {
+        if (bookingRequest.buyerEmail() == null) {
             throw new BadRequestException();
         }
 
@@ -75,7 +79,7 @@ class BookingService {
 
         //Create booking
         Booking booking = new Booking();
-        booking.setBuyerId(bookingRequest.buyerId());
+        booking.setBuyerEmail(bookingRequest.buyerEmail());
         booking.setStatus(BookingStatus.IN_PROGRESS);
         booking.setExpiresAt(Instant.now().plusSeconds(reservationPeriodInSeconds));
         Booking savedBooking = bookingRepository.save(booking);
@@ -128,16 +132,17 @@ class BookingService {
     }
 
     @Transactional
-    public void paymentForBookingProcessed(long bookingId, boolean success) {
+    public void paymentForBookingProcessed(long bookingId, boolean success, String failureReason, long paymentId) {
         var booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new NotFoundException(String.format("Booking %s not found", bookingId)));
         if (success) {
             booking.paymentSucceeded();
             bookingItemRepository.findWithTicketByBookingIdForUpdate(booking.getId())
                     .stream().map(BookingItem::getTicket).forEach(Ticket::sold);
-            //send email
+
+            bookingMessagePublisher.publishBookingPaymentSucceeded(new BookingPaymentSucceededMessage(booking.getId(),paymentId, booking.getBuyerEmail()));
         } else {
-            //Do nothing -- allow to retry the payment
+            //Do nothing -- allow to retry the payment.
         }
     }
 }

@@ -5,7 +5,7 @@ import jakarta.annotation.Nullable;
 
 import java.util.List;
 
-record CreateBookingRequest(List<Long> ticketIds, Long buyerId) {
+record CreateBookingRequest(List<Long> ticketIds, String buyerEmail) {
 };
 
 record CreateBookingResponse(long bookingId, List<BookingItem> bookingItems) {

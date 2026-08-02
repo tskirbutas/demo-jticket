@@ -12,8 +12,8 @@ class Booking {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     long id;
-    @Column(name = "buyer_id")
-    long buyerId;
+    @Column(name = "buyer_email")
+    String buyerEmail;
 
     @Enumerated(EnumType.STRING)
     BookingStatus status;
@@ -25,8 +25,8 @@ class Booking {
 
     }
 
-    Booking(long buyerId, BookingStatus status, Instant expiresAt) {
-        this.buyerId = buyerId;
+    Booking(String buyerEmail, BookingStatus status, Instant expiresAt) {
+        this.buyerEmail = buyerEmail;
         this.status = status;
         this.expiresAt = expiresAt;
     }
@@ -43,12 +43,12 @@ class Booking {
         this.id = id;
     }
 
-    public long getBuyerId() {
-        return buyerId;
+    public String getBuyerEmail() {
+        return buyerEmail;
     }
 
-    public void setBuyerId(long buyerId) {
-        this.buyerId = buyerId;
+    public void setBuyerEmail(String buyerEmail) {
+        this.buyerEmail = buyerEmail;
     }
 
     public BookingStatus getStatus() {
