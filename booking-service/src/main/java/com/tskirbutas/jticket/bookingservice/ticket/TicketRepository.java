@@ -20,4 +20,6 @@ public interface TicketRepository extends JpaRepository<Ticket, Long> {
     List<Ticket> findTicketsForUpdate(@Param("ids") List<Long> ids);
 
     List<Ticket> findAllByStatus(TicketStatus status);
+
+    List<Ticket> findAllByEventId(long eventId);
 }
