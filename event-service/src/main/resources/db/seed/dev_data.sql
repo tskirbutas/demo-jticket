@@ -1,3 +1,5 @@
+TRUNCATE TABLE events RESTART IDENTITY CASCADE;
+
 INSERT INTO events (id, name, description, start_date)
 VALUES
     (
@@ -11,5 +13,4 @@ VALUES
         'Rock Festival',
         'Three day festival',
         '2026-09-01 18:00:00'
-    )
-ON CONFLICT (id) DO NOTHING;
+    );
