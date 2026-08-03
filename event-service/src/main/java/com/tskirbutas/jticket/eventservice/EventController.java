@@ -8,7 +8,7 @@ import java.util.List;
 @RequestMapping("/event")
 class EventController {
 
-    private EventRepository eventRepository;
+    final EventRepository eventRepository;
 
     EventController(EventRepository eventRepository) {
         this.eventRepository = eventRepository;

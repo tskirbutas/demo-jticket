@@ -19,8 +19,10 @@ public class PaymentService {
     }
 
     public InitProcessPaymentResult initPaymentProcessing(long bookingId, PaymentDetails paymentDetails) {
-        var response = paymentProcessorClient.processPayment(paymentDetails);
+        // Call is blocking
+        var response = paymentProcessorClient.initProcessPayment(paymentDetails);
         var paymentId = response.paymentId();
+        // Assumes non-null response is success for simplicity
         if (paymentId != null) {
             paymentRepository.save(new Payment(paymentId, bookingId, PaymentStatus.IN_PROGRESS));
         }
@@ -34,9 +36,11 @@ public class PaymentService {
             throw new BadRequestException("paymentId is null");
         }
 
+        // Locking payment row
         var payment = paymentRepository.findByIdForUpdate(paymentId)
                 .orElseThrow(() -> new NotFoundException(String.format("Payment %s not found", paymentId)));
 
+        // Check if processed already
         if (payment.getStatus() != PaymentStatus.IN_PROGRESS) {
             return;
         }

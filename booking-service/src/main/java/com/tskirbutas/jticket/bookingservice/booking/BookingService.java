@@ -61,7 +61,8 @@ class BookingService {
             throw new BadRequestException();
         }
 
-        List<Ticket> tickets = ticketRepository.findTicketsForUpdate(bookingRequest.ticketIds());
+        // Lock tickets
+        var tickets = ticketRepository.findTicketsForUpdate(bookingRequest.ticketIds());
 
         //Client sent ticket ids that we cannot find
         if (tickets.size() != bookingRequest.ticketIds().size()) {
@@ -78,19 +79,17 @@ class BookingService {
         tickets.forEach(Ticket::reserve);
 
         //Create booking
-        Booking booking = new Booking();
-        booking.setBuyerEmail(bookingRequest.buyerEmail());
-        booking.setStatus(BookingStatus.IN_PROGRESS);
-        booking.setExpiresAt(Instant.now().plusSeconds(reservationPeriodInSeconds));
-        Booking savedBooking = bookingRepository.save(booking);
+        var booking = new Booking(
+                bookingRequest.buyerEmail(),
+                BookingStatus.IN_PROGRESS,
+                Instant.now().plusSeconds(reservationPeriodInSeconds)
+        );
+        var savedBooking = bookingRepository.save(booking);
 
         //Create booking items
-        List<BookingItem> bookingItems = tickets.stream().map(
+        var bookingItems = tickets.stream().map(
                 ticket -> {
-                    BookingItem item = new BookingItem();
-                    item.setBooking(savedBooking);
-                    item.setTicket(ticket);
-                    return item;
+                    return new BookingItem(savedBooking, ticket);
                 }
         ).toList();
         bookingItemRepository.saveAll(bookingItems);
@@ -100,7 +99,8 @@ class BookingService {
 
     @Transactional
     void expireBookings() {
-        List<Booking> expiredBookings = bookingRepository.findByStatusAndExpiresAtBefore(BookingStatus.IN_PROGRESS, Instant.now());
+        // Lock bookings for expiration check
+        var expiredBookings = bookingRepository.findByStatusAndExpiresAtBefore(BookingStatus.IN_PROGRESS, Instant.now());
         if (expiredBookings.isEmpty()) {
             return;
         }
@@ -108,7 +108,7 @@ class BookingService {
         for (Booking booking : expiredBookings) {
             booking.expire();
         }
-        List<BookingItem> expiredBookingItems = bookingItemRepository.findWithTicketByBookingIdIn(expiredBookings.stream().map(Booking::getId).toList());
+        var expiredBookingItems = bookingItemRepository.findWithTicketByBookingIdIn(expiredBookings.stream().map(Booking::getId).toList());
         for (BookingItem bookingItem : expiredBookingItems) {
             bookingItem.getTicket().makeAvailable();
         }
@@ -116,6 +116,7 @@ class BookingService {
 
     @Transactional
     PayForBookingResponse payForBooking(long bookingId, PaymentDetails paymentDetails) {
+        // Lock booking row for status update
         var booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new NotFoundException(String.format("Booking %s not found", bookingId)));
 
@@ -124,6 +125,7 @@ class BookingService {
         }
 
         var result = paymentService.initPaymentProcessing(bookingId, paymentDetails);
+        // For simplicity assumes non-null paymentId is success
         if (result.paymentId() != null) {
             booking.paymentInitialized();
         }
@@ -133,10 +135,12 @@ class BookingService {
 
     @Transactional
     public void paymentForBookingProcessed(long bookingId, boolean success, String failureReason, long paymentId) {
+        // Lock booking row for status update
         var booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new NotFoundException(String.format("Booking %s not found", bookingId)));
         if (success) {
             booking.paymentSucceeded();
+            // Lock ticket row(s) for status update FIXME: probably does not work as intended, check
             bookingItemRepository.findWithTicketByBookingIdForUpdate(booking.getId())
                     .stream().map(BookingItem::getTicket).forEach(Ticket::sold);
 

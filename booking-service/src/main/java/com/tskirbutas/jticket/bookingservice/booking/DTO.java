@@ -5,6 +5,10 @@ import jakarta.annotation.Nullable;
 
 import java.util.List;
 
+/**
+ * Collection of records to be used data transport
+ */
+
 record CreateBookingRequest(List<Long> ticketIds, String buyerEmail) {
 };
 

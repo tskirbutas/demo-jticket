@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class BookingExpirationJob {
 
-    private final BookingService bookingService;
+    final BookingService bookingService;
 
     BookingExpirationJob(BookingService bookingService) {
         this.bookingService = bookingService;

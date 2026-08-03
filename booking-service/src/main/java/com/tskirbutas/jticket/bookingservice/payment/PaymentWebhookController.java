@@ -17,8 +17,8 @@ public class PaymentWebhookController {
 
     @PostMapping(WEBHOOK_FAKE_PAYMENT_PROCESSOR)
     ResponseEntity<Void> handle(@RequestBody PaymentProcessingCompletedRequest completedRequest) {
-        //TODO: #paymentCompleted should say if everything is ok so that we could send ACK or not
         paymentService.paymentCompleted(completedRequest.paymentId(), completedRequest.success(), completedRequest.failureReason());
+        // For simplicity assumes that 200 OK is enough to act as ACK
         return ResponseEntity.ok().build();
     }
 }

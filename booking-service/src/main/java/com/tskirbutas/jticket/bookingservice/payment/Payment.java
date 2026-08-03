@@ -7,13 +7,13 @@ import jakarta.persistence.*;
 public class Payment {
 
     @Id
-    private long id;
+    long id;
 
     @Column(name = "booking_id")
-    private long bookingId;
+    long bookingId;
 
     @Enumerated(EnumType.STRING)
-    private PaymentStatus status;
+    PaymentStatus status;
 
     public Payment() {
     }

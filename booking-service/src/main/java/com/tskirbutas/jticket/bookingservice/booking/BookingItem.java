@@ -12,13 +12,13 @@ class BookingItem {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "booking_id", nullable = false)
-    private Booking booking;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "booking_id")
+    Booking booking;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "ticket_id", nullable = false, unique = true)
-    private Ticket ticket;
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ticket_id")
+    Ticket ticket;
 
     BookingItem() {
     }

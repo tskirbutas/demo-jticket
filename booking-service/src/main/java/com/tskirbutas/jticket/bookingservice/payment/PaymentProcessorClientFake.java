@@ -10,6 +10,17 @@ import java.util.concurrent.ThreadLocalRandom;
 @Component
 class PaymentProcessorClientFake implements PaymentProcessorClient {
 
+    @Override
+    public InitProcessPaymentResponse initProcessPayment(PaymentDetails paymentDetails) {
+        var paymentId = ThreadLocalRandom.current().nextLong(); // fake some 3rd party response
+        return new InitProcessPaymentResponse(paymentId, null);
+    }
+}
+
+//TODO: consider invoking the webhook from here after some delay
+// --  otherwise one has to call the webhook manually
+//class PaymentProcessorClientFakeAutoWebhook implements PaymentProcessorClient {
+//
 //    final RestClient restClient;
 //    int webhookInvocationDelay_millis;
 //    @Value("${app.base-url}")
@@ -22,14 +33,12 @@ class PaymentProcessorClientFake implements PaymentProcessorClient {
 //        this.restClient = restClient;
 //        this.webhookInvocationDelay_millis = webhookInvocationDelay_millis;
 //    }
-
-
-    @Override
-    public InitProcessPaymentResponse processPayment(PaymentDetails paymentDetails) {
-        var paymentId = ThreadLocalRandom.current().nextLong(); // fake some 3rd party response
-
-        //TODO: consider invoking the webhook from here after some delay
-        // --  otherwise one has to call the webhook manually
+//
+//
+//    @Override
+//    public InitProcessPaymentResponse initProcessPayment(PaymentDetails paymentDetails) {
+//        var paymentId = ThreadLocalRandom.current().nextLong(); // fake some 3rd party response
+//
 //        var completedRequest = new PaymentProcessingCompletedRequest(paymentId, true, null);
 //        var url = String.format("%s%s", baseUrl, WEBHOOK_FAKE_PAYMENT_PROCESSOR);
 //        CompletableFuture.runAsync(() -> {
@@ -41,7 +50,7 @@ class PaymentProcessorClientFake implements PaymentProcessorClient {
 //                            .toBodilessEntity();
 //                },
 //                CompletableFuture.delayedExecutor(webhookInvocationDelay_millis, TimeUnit.MILLISECONDS));
-
-        return new InitProcessPaymentResponse(paymentId, null);
-    }
-}
+//
+//        return new InitProcessPaymentResponse(paymentId, null);
+//    }
+//}

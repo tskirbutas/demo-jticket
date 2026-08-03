@@ -12,9 +12,4 @@ public class BookingServiceApplication {
         SpringApplication.run(BookingServiceApplication.class, args);
     }
 
-//    @Bean
-//    RestClient restClient(RestClient.Builder builder) {
-//        //Is used only for the PaymentProcessorClientFake, so more robust configuration is skipped
-//        return builder.build();
-//    }
 }
