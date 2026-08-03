@@ -45,15 +45,19 @@ class BookingService {
     }
 
     Booking findBookingById(long id) {
-        return bookingRepository.findById(id).orElse(null);
+        return bookingRepository.findById(id).orElseThrow(() -> new NotFoundException(String.format("Booking %s not found", id)));
     }
 
     List<Ticket> findTicketsByBookingId(long id) {
+        if (!bookingRepository.existsById(id)) {
+            throw new NotFoundException(String.format("Booking %s not found", id));
+        }
         return bookingItemRepository.findTicketsByBookingId(id);
     }
 
     @Transactional
     CreateBookingResponse createBooking(CreateBookingRequest bookingRequest) {
+        // Validate request params
         if (bookingRequest.ticketIds().isEmpty()) {
             throw new BadRequestException();
         }
@@ -120,6 +124,7 @@ class BookingService {
         var booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new NotFoundException(String.format("Booking %s not found", bookingId)));
 
+        // Should not be able to initialize payment for bookings that are not BookingStatus.IN_PROGRESS
         if (booking.status != BookingStatus.IN_PROGRESS) {
             throw new BadRequestException();
         }
