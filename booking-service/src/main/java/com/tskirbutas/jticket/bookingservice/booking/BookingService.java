@@ -140,9 +140,9 @@ class BookingService {
                 .orElseThrow(() -> new NotFoundException(String.format("Booking %s not found", bookingId)));
         if (success) {
             booking.paymentSucceeded();
-            // Lock ticket row(s) for status update FIXME: probably does not work as intended, check
-            bookingItemRepository.findWithTicketByBookingIdForUpdate(booking.getId())
-                    .stream().map(BookingItem::getTicket).forEach(Ticket::sold);
+
+            // Lock ticket row(s) for status update
+            bookingItemRepository.findTicketsByBookingIdForUpdate(bookingId).forEach(Ticket::sold);
 
             bookingMessagePublisher.publishBookingPaymentSucceeded(new BookingPaymentSucceededMessage(booking.getId(),paymentId, booking.getBuyerEmail()));
         } else {

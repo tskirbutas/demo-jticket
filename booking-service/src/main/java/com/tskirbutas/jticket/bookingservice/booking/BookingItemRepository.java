@@ -1,9 +1,8 @@
 package com.tskirbutas.jticket.bookingservice.booking;
 
 
-import jakarta.persistence.LockModeType;
+import com.tskirbutas.jticket.bookingservice.ticket.Ticket;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
@@ -29,12 +28,13 @@ interface BookingItemRepository extends JpaRepository<BookingItem, Long> {
             """)
     List<BookingItem> findWithTicketByBookingIdIn(List<Long> bookingIds);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("""
-            SELECT bi
-            FROM BookingItem bi
-            JOIN FETCH bi.ticket
-            WHERE bi.booking.id in :id
-            """)
-    List<BookingItem> findWithTicketByBookingIdForUpdate(long id);
+    // We might be fighting JPA here but explicit lock on tickets is neccessary. There might be a better way
+    @Query(value = """
+    select t.*
+    from tickets t
+    join booking_items bi on bi.ticket_id = t.id
+    where bi.booking_id = :bookingId
+    for update
+    """, nativeQuery = true)
+    List<Ticket> findTicketsByBookingIdForUpdate(long bookingId);
 }
