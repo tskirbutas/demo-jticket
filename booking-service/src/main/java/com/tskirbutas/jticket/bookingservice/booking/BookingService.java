@@ -48,8 +48,8 @@ class BookingService {
         return bookingRepository.findById(id).orElse(null);
     }
 
-    List<BookingItem> findByBookingId(long id) {
-        return bookingItemRepository.findByBookingId(id);
+    List<Ticket> findTicketsByBookingId(long id) {
+        return bookingItemRepository.findTicketsByBookingId(id);
     }
 
     @Transactional

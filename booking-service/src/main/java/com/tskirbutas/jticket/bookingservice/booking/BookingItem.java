@@ -16,7 +16,7 @@ class BookingItem {
     @JoinColumn(name = "booking_id")
     Booking booking;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ticket_id")
     Ticket ticket;
 

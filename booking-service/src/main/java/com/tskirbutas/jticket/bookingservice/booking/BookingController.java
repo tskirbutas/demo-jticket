@@ -2,6 +2,7 @@ package com.tskirbutas.jticket.bookingservice.booking;
 
 import com.tskirbutas.jticket.bookingservice.BadRequestException;
 import com.tskirbutas.jticket.bookingservice.NotFoundException;
+import com.tskirbutas.jticket.bookingservice.ticket.Ticket;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketUnavailableException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.ErrorResponse;
@@ -20,19 +21,21 @@ class BookingController {
         this.bookingService = bookingService;
     }
 
+    // Debug mapping
     @GetMapping
     List<Booking> findAllBookings() {
         return bookingService.findAll();
     }
 
+    // Debug mapping
     @GetMapping("/{id}")
     Booking findBookingById(@PathVariable long id) {
         return bookingService.findBookingById(id);
     }
 
-    @GetMapping("/{id}/items")
-    List<BookingItem> findBookingItemsById(@PathVariable long id) {
-        return bookingService.findByBookingId(id);
+    @GetMapping("/{id}/tickets")
+    List<Ticket> findTicketsById(@PathVariable long id) {
+        return bookingService.findTicketsByBookingId(id);
     }
 
     @PostMapping
