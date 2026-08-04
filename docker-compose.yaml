@@ -37,3 +37,43 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:19092
     depends_on:
       - kafka
+
+  event-service:
+    image: jticket-event-service
+    build:
+      context: .
+      dockerfile: event-service/Dockerfile
+    ports:
+      - "8090:8090"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+    depends_on:
+      - postgres
+
+  booking-service:
+    image: jticket-booking-service
+    build:
+      context: .
+      dockerfile: booking-service/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      KAFKA_HOST: kafka
+      KAFKA_PORT: 19092
+    depends_on:
+      - postgres
+      - kafka
+
+  email-service:
+    image: jticket-email-service
+    build:
+      context: .
+      dockerfile: email-service/Dockerfile
+    environment:
+      KAFKA_HOST: kafka
+      KAFKA_PORT: 19092
+    depends_on:
+      - kafka

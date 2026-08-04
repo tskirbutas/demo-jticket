@@ -115,12 +115,19 @@ git clone https://github.com/tskirbutas/demo-jticket
 cd demo-jticket
 ```
 
-The project is currently primarily developed using IntelliJ IDEA with supporting infrastructure (PostgreSQL, Kafka) running through Docker Compose.
+Build the project:
+```bash
+docker compose build
+```
+
+Run:
 ```bash
 docker compose up
 ```
 
-A full Docker Compose environment is planned as a future improvement.
+The default ports:
+- event-service:8090
+- booking-service:8080
 
 ### Maven
 To run service from terminal with maven, make sure to install local dependencies (and whenever you update them):
@@ -136,8 +143,43 @@ Then run a service with:
 ./mvnw clean spring-boot:run -pl booking-service
 ```
 
+
 ### Development
-For development, use your favorite IDE to run an individual module.
+During dev, you probably want to run only the infrastructure containers:
+```bash
+docker compose up postgres kafka kafka-ui
+```
+Or everything besides the module you are developing, e.g. booking-service:
+```bash
+docker compose up postgres kafka kafka-ui event-service email-service
+```
+This is a bit cumbersome. Better dev experience is planned in the future.
+
+### Examples
+The event-service and booking-service include a spring dev profile which will seed the DB with some data.
+
+Then to test booking confirmation you could run (assuming booking-service is run with dev profile):
+```bash
+payment_id=$(
+  curl -s -X POST http://localhost:8080/booking/2/pay \
+    -H "Content-Type: application/json" \
+    -d '{}' |
+  grep -oP '"paymentId"\s*:\s*\K-?\d+'
+)
+
+curl -v -X POST http://localhost:8080/webhook/fake-payment-processor \
+  -H "Content-Type: application/json" \
+  -d "{\"paymentId\":$payment_id,\"success\":true}"
+```
+
+You should see email-service receiving the event and showing a simulation of sending email:
+```
+email-service-1  | EmailSenderFake --- Sending email to buyer6@demo.com
+email-service-1  | Booking 2 confirmed
+email-service-1  | Payment ref: 9053677088059936629
+```
+
+More examples is planned in the future.
 
 ## Testing
 

@@ -4,7 +4,7 @@ spring:
       enabled: true
 
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: ${KAFKA_HOST:localhost}:${KAFKA_PORT:9092}
     consumer:
       group-id: email-service
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer

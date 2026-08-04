@@ -3,7 +3,7 @@ TRUNCATE TABLE bookings, tickets, booking_items RESTART IDENTITY CASCADE;
 INSERT INTO bookings (id, buyer_email, status, expires_at)
 VALUES
     (1, 'buyer5@demo.com','PAYMENT_SUCCEEDED', null),
-    (2, 'buyer6@demo.com','IN_PROGRESS', (now() + interval '15 minutes'));
+    (2, 'buyer6@demo.com','IN_PROGRESS', (now() + interval '30 minutes'));
 
 INSERT INTO tickets (id, event_id, seat, status, price)
 VALUES
