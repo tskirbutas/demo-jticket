@@ -95,6 +95,49 @@ CREATE DATABASE jticket_bookingdb;
 
 It's only a matter of config to actually use separate containers for each as the code was written with such intention in mind.
 
+## Requirements
+
+Required:
+
+- Docker
+- Docker Compose
+
+Optional for development:
+
+- Java 21+
+
+## Running
+
+Clone the repository:
+
+```bash
+git clone https://github.com/tskirbutas/demo-jticket
+cd demo-jticket
+```
+
+The project is currently primarily developed using IntelliJ IDEA with supporting infrastructure (PostgreSQL, Kafka) running through Docker Compose.
+```bash
+docker compose up
+```
+
+A full Docker Compose environment is planned as a future improvement.
+
+### Maven
+To run service from terminal with maven, make sure to install local dependencies (and whenever you update them):
+```bash
+./mvwn clean install
+```
+At the moment of writing, there's only one that's needed, namely jticket-core, so instead you can:
+```bash
+./mvnw clean install -pl jticket-core
+```
+Then run a service with:
+```bash
+./mvnw clean spring-boot:run -pl booking-service
+```
+
+### Development
+For development, use your favorite IDE to run an individual module.
 
 ## Testing
 
@@ -107,6 +150,15 @@ Tests cover scenarios such as:
 - Payment confirmation
 - Kafka event processing
 
+The convention is to end unit test filenames with *Test and integration ones with *IT.
+Run integration tests from your IDE or with maven from project root:
+```bash
+./mvnw clean verify
+```
+Or for individual projects:
+```bash
+./mvnw clean verify -pl booking-service
+```
 Tests use:
 
 - JUnit
@@ -150,35 +202,3 @@ Potential improvements:
 - Kubernetes deployment
 - CI/CD pipeline
 - Cloud deployment
-
-## Requirements
-
-Required:
-
-- Docker
-- Docker Compose
-
-Optional for development:
-
-- Java 21+
-
-## Running
-
-Clone the repository:
-
-```bash
-git clone https://github.com/tskirbutas/demo-jticket
-cd demo-jticket
-```
-
-The project is currently primarily developed using IntelliJ IDEA with supporting infrastructure (PostgreSQL, Kafka) running through Docker Compose.
-```bash
-docker compose up
-```
-
-A full Docker Compose environment is planned as a future improvement.
-
-## Configuration
-
-Configuration is handled through Spring properties, profiles and environment variables.
-TODO: expand...

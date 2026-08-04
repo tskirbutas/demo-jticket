@@ -14,7 +14,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * The codebase would benefit from a lot more testing. Should be expanded when there's more time.
- * Note that most important paths are covered by integration tests {@link BookingServiceIntegrationTest}
+ * Note that most important paths are covered by integration tests {@link BookingServiceIT}
  */
 @ExtendWith(MockitoExtension.class)
 public class BookingServiceUnitTest {

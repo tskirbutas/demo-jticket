@@ -25,7 +25,7 @@ import static org.mockito.Mockito.verify;
 
 @SpringBootTest
 @ImportTestcontainers(EmailTestContainerConfiguration.class)
-class EmailServiceApplicationTests {
+class EmailServiceIT {
 
     @MockitoSpyBean
     EmailSenderFake emailSender;

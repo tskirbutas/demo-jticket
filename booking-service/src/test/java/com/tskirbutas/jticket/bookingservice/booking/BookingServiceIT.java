@@ -44,7 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ImportTestcontainers(BookingTestContainerConfiguration.class)
-public class BookingServiceIntegrationTest {
+public class BookingServiceIT {
 
     @Autowired
     private MockMvc mockMvc;

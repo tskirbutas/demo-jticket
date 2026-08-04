@@ -11,7 +11,7 @@
 	<groupId>com.tskirbutas</groupId>
 	<artifactId>email-service</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name/>
+	<name>email-service</name>
 	<description/>
 	<url/>
 	<licenses>
@@ -79,6 +79,19 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+				<version>3.6.0-M1</version>
+				<executions>
+					<execution>
+						<goals>
+							<goal>integration-test</goal>
+							<goal>verify</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
