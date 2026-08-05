@@ -5,7 +5,7 @@ import com.tskirbutas.jticket.bookingservice.ticket.Ticket;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketRepository;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketStatus;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketUnavailableException;
-import com.tskirbutas.jticket.core.messaging.BookingPaymentSucceededMessage;
+import com.tskirbutas.jticket.core.messaging.BookingPaymentMessage;
 import com.tskirbutas.jticket.core.messaging.kafka.KafkaConstants;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -21,9 +21,11 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.support.serializer.JacksonJsonDeserializer;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.kafka.KafkaContainer;
 import tools.jackson.databind.ObjectMapper;
 
+import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.HashMap;
@@ -35,9 +37,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.tskirbutas.jticket.bookingservice.payment.PaymentWebhookController.WEBHOOK_FAKE_PAYMENT_PROCESSOR;
+import static com.tskirbutas.jticket.bookingservice.payment.PaymentController.WEBHOOK_FAKE_PAYMENT_PROCESSOR;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -69,8 +72,21 @@ public class BookingServiceIT {
     @Autowired
     private KafkaContainer kafka;
 
+//    private Consumer<String, BookingPaymentMessage> kafkaConsumer;
+//
+//
+//    @BeforeEach
+//    void setup() {
+//        kafkaConsumer = createTestKafkaConsumer(BookingPaymentMessage.class);
+//        kafkaConsumer.subscribe(List.of(KafkaConstants.TOPIC_BOOKING_PAYMENT_PROCESSED));
+//
+//        // force consumer group join + partition assignment
+//        KafkaTestUtils.getRecords(kafkaConsumer);
+//    }
+
     @AfterEach
     void cleanUp() {
+//        kafkaConsumer.close();
         paymentRepository.deleteAllInBatch();
         bookingItemRepository.deleteAllInBatch();
         bookingRepository.deleteAllInBatch();
@@ -309,17 +325,30 @@ public class BookingServiceIT {
         var bookingId = booking.getId();
         var requestContent = new PayForBookingRequest(new PaymentDetails());
 
-        mockMvc.perform(post(String.format("/booking/%s/pay", bookingId))
+        // Initiate payment for a booking
+        var payResult = mockMvc.perform(post(String.format("/booking/%s/pay", bookingId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(requestContent)))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk()).andReturn();
 
-        //validate bookings
+        // Check if paymentId is returned
+        var payResultDeserialized = deserializeMockMvcResult(payResult, PayForBookingResponse.class);
+        assertThat(payResultDeserialized.paymentId()).isNotNull();
+
+        var paymentResult = mockMvc.perform(get(String.format("/payment/%s", payResultDeserialized.paymentId()))
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk()).andReturn();
+
+        // Check if status is PaymentStatus.IN_PROGRESS via REST
+        var paymentResultDeserialized = deserializeMockMvcResult(paymentResult, Payment.class);
+        assertThat(paymentResultDeserialized.getStatus()).isEqualTo(PaymentStatus.IN_PROGRESS);
+
+        // Validate bookings
         var bookings = bookingRepository.findAll();
         assertThat(bookings).hasSize(1);
         assertThat(bookings.get(0).getStatus()).isEqualTo(BookingStatus.PAYMENT_INITIALIZED);
 
-        //validate payments
+        // Validate payments
         var payments = paymentRepository.findAll();
         assertThat(payments).hasSize(1);
         var payment = payments.get(0);
@@ -331,12 +360,20 @@ public class BookingServiceIT {
                         .content(objectMapper.writeValueAsString(webhookRequest)))
                 .andExpect(status().isOk());
 
-        //validate payments
+        // Check if status is PaymentStatus.SUCCEEDED via REST
+        paymentResult = mockMvc.perform(get(String.format("/payment/%s", payment.getId()))
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andReturn();
+        paymentResultDeserialized = deserializeMockMvcResult(paymentResult, Payment.class);
+        assertThat(paymentResultDeserialized.getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
+
+        // Validate payments
         payments = paymentRepository.findAll();
         assertThat(payments).hasSize(1);
         assertThat(payments.get(0).getStatus()).isEqualTo(PaymentStatus.SUCCEEDED);
 
-        //validate ticket statuses
+        // Validate ticket statuses
         t1 = ticketRepository.findById(t1.getId()).orElseThrow();
         assertThat(t1.getStatus()).isEqualTo(TicketStatus.SOLD);
         t2 = ticketRepository.findById(t2.getId()).orElseThrow();
@@ -344,13 +381,87 @@ public class BookingServiceIT {
         t3 = ticketRepository.findById(t3.getId()).orElseThrow();
         assertThat(t3.getStatus()).isEqualTo(TicketStatus.AVAILABLE);
 
-        //validate kafka message published
-        try(var kafkaConsumer = createTestKafkaConsumer(BookingPaymentSucceededMessage.class)) {
-            kafkaConsumer.subscribe(List.of(KafkaConstants.TOPIC_BOOKING_PAYMENT_SUCCEEDED));
+        // Validate kafka message published
+        try(var kafkaConsumer = createTestKafkaConsumer(BookingPaymentMessage.class)) {
+            kafkaConsumer.subscribe(List.of(KafkaConstants.TOPIC_BOOKING_PAYMENT_PROCESSED));
 
-            var record = KafkaTestUtils.getSingleRecord(kafkaConsumer, KafkaConstants.TOPIC_BOOKING_PAYMENT_SUCCEEDED);
+            var record = KafkaTestUtils.getSingleRecord(kafkaConsumer, KafkaConstants.TOPIC_BOOKING_PAYMENT_PROCESSED);
             assertThat(record.value().paymentId()).isEqualTo(payment.getId());
         }
+    }
+
+    @Test
+    void postBookingPay_paymentRejectedAfterInit_shouldReleaseTicketsAndSendEmail() throws Exception {
+        var t1 = ticketRepository.save(new Ticket(1, "A1", BigDecimal.valueOf(44.99), TicketStatus.RESERVED));
+        var t2 = ticketRepository.save(new Ticket(1, "A2", BigDecimal.valueOf(44.99), TicketStatus.RESERVED));
+        var t3 = ticketRepository.save(new Ticket(1, "A3", BigDecimal.valueOf(44.99), TicketStatus.AVAILABLE));
+
+        var buyerEmail = "buyer123@demo.com";
+        var booking = bookingRepository.save(new Booking(buyerEmail, BookingStatus.IN_PROGRESS, Instant.now().plusSeconds(60 * 15)));
+        bookingItemRepository.save(new BookingItem(booking, t1));
+        bookingItemRepository.save(new BookingItem(booking, t2));
+
+        var bookingId = booking.getId();
+        var requestContent = new PayForBookingRequest(new PaymentDetails());
+
+        // Initiate payment for a booking
+        mockMvc.perform(post(String.format("/booking/%s/pay", bookingId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(requestContent)))
+                .andExpect(status().isOk());
+
+        //validate payments
+        var payments = paymentRepository.findAll();
+        assertThat(payments).hasSize(1);
+        var payment = payments.get(0);
+        assertThat(payment.getStatus()).isEqualTo(PaymentStatus.IN_PROGRESS);
+
+        // Simulate failure from third party processor
+        var webhookRequest = new PaymentProcessingCompletedRequest(payment.getId(), false, "Could not transfer funds");
+        mockMvc.perform(post(WEBHOOK_FAKE_PAYMENT_PROCESSOR)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(webhookRequest)))
+                .andExpect(status().isOk());
+
+        // Check if status is PaymentStatus.FAILED via REST
+        var paymentResult = mockMvc.perform(get(String.format("/payment/%s", payment.getId()))
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        var paymentResultDeserialized = deserializeMockMvcResult(paymentResult, Payment.class);
+        assertThat(paymentResultDeserialized.getStatus()).isEqualTo(PaymentStatus.FAILED);
+
+        //validate payments
+        payments = paymentRepository.findAll();
+        assertThat(payments).hasSize(1);
+        assertThat(payments.get(0).getStatus()).isEqualTo(PaymentStatus.FAILED);
+
+        //validate booking
+        booking = bookingRepository.findById(paymentResultDeserialized.getBookingId()).orElseThrow();
+        assertThat(booking.getStatus()).isEqualTo(BookingStatus.CANCELLED);
+
+        //validate ticket statuses
+        t1 = ticketRepository.findById(t1.getId()).orElseThrow();
+        assertThat(t1.getStatus()).isEqualTo(TicketStatus.AVAILABLE);
+        t2 = ticketRepository.findById(t2.getId()).orElseThrow();
+        assertThat(t2.getStatus()).isEqualTo(TicketStatus.AVAILABLE);
+        t3 = ticketRepository.findById(t3.getId()).orElseThrow();
+        assertThat(t3.getStatus()).isEqualTo(TicketStatus.AVAILABLE);
+
+        //validate kafka message published
+        // TODO: introducing another kafka test breaks other due to KafkaTestUtils.getSingleRecord
+        // and AUTO_OFFSET_RESET_CONFIG, "earliest". Need to refactor test setup
+//        try(var kafkaConsumer = createTestKafkaConsumer(BookingPaymentFailedMessage.class)) {
+//            kafkaConsumer.subscribe(List.of(KafkaConstants.TOPIC_BOOKING_PAYMENT_PROCESSED));
+//
+//            var record = KafkaTestUtils.getSingleRecord(kafkaConsumer, KafkaConstants.TOPIC_BOOKING_PAYMENT_PROCESSED);
+//            assertThat(record.value().paymentId()).isEqualTo(payment.getId());
+//            assertThat(record.value().failureReason()).isNotEmpty();
+//            // Note that is acceptable for the failure reason to be transformed before hitting kafka
+//            // so this could fail in the future
+////            assertThat(record.value().failureReason()).isEqualTo(webhookRequest.failureReason());
+//        }
     }
 
     <T> Consumer<String, T> createTestKafkaConsumer(Class<T> valueDefaultType) {
@@ -367,5 +478,11 @@ public class BookingServiceIT {
 
         var factory = new DefaultKafkaConsumerFactory<String, T>(props);
         return factory.createConsumer();
+    }
+
+    <T> T deserializeMockMvcResult(MvcResult payResult, Class<T> type) throws UnsupportedEncodingException {
+        return objectMapper.readValue(
+                payResult.getResponse().getContentAsString(),
+                type);
     }
 }

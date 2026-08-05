@@ -1,18 +1,21 @@
 package com.tskirbutas.jticket.bookingservice.payment;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
-public class PaymentWebhookController {
+public class PaymentController {
     public static final String WEBHOOK_FAKE_PAYMENT_PROCESSOR = "/webhook/fake-payment-processor";
 
     final PaymentService paymentService;
 
-    PaymentWebhookController(PaymentService paymentService) {
+    PaymentController(PaymentService paymentService) {
         this.paymentService = paymentService;
+    }
+
+    @GetMapping("/payment/{id}")
+    Payment findPaymentById(@PathVariable long id) {
+        return paymentService.findById(id);
     }
 
     @PostMapping(WEBHOOK_FAKE_PAYMENT_PROCESSOR)

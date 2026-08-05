@@ -1,6 +1,7 @@
 package com.tskirbutas.jticket.emailservice.email;
 
 
+import com.tskirbutas.jticket.core.messaging.BookingPaymentFailedMessage;
 import com.tskirbutas.jticket.core.messaging.BookingPaymentSucceededMessage;
 import com.tskirbutas.jticket.core.messaging.kafka.KafkaConstants;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -34,13 +35,25 @@ class EmailServiceIT {
     private KafkaContainer kafka;
 
     @Test
-    void consumeBookingMessage_shouldInvokeEmailSender() {
+    void consumeBookingPaymentSucceededMessage_shouldInvokeEmailSender() {
         var message = new BookingPaymentSucceededMessage(123L, 987L, "buyer1@demo.com");
         var producer = createTestKafkaProducer();
-        producer.send(KafkaConstants.TOPIC_BOOKING_PAYMENT_SUCCEEDED, message);
+        producer.send(KafkaConstants.TOPIC_BOOKING_PAYMENT_PROCESSED, message);
 
         await().atMost(Duration.ofSeconds(3)).untilAsserted(() -> {
-            verify(emailSender).sendConfirmationEmailForBooking(eq(message.email()), Mockito.anyString());
+            verify(emailSender).sendEmail(eq(message.email()), Mockito.anyString());
+        });
+    }
+
+    @Test
+    void consumeBookingPaymentFailedMessage_shouldInvokeEmailSender() {
+        var failureReason = "Could not transfer funds";
+        var message = new BookingPaymentFailedMessage(123L, 987L, "buyer1@demo.com", failureReason);
+        var producer = createTestKafkaProducer();
+        producer.send(KafkaConstants.TOPIC_BOOKING_PAYMENT_PROCESSED, message);
+
+        await().atMost(Duration.ofSeconds(3)).untilAsserted(() -> {
+            verify(emailSender).sendEmail(eq(message.email()), Mockito.contains(failureReason));
         });
     }
 

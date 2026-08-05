@@ -74,4 +74,6 @@ class Booking {
     void paymentInitialized() { this.status = BookingStatus.PAYMENT_INITIALIZED; }
 
     void paymentSucceeded() { this.status = BookingStatus.PAYMENT_SUCCEEDED; }
+
+    void cancelled() { this.status = BookingStatus.CANCELLED; }
 }

@@ -30,6 +30,14 @@ public class PaymentService {
         return new InitProcessPaymentResult(paymentId, response.failureReason());
     }
 
+    /**
+     * Typically polled by the client app to get payment status
+     */
+    public Payment findById(long paymentId) {
+        return paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new NotFoundException(String.format("Payment %s not found", paymentId)));
+    }
+
     @Transactional
     public void paymentCompleted(Long paymentId, boolean success, String failureReason) {
         if (paymentId == null) {

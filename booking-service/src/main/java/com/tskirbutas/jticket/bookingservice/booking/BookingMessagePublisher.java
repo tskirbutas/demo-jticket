@@ -1,7 +1,7 @@
 package com.tskirbutas.jticket.bookingservice.booking;
 
-import com.tskirbutas.jticket.core.messaging.BookingPaymentSucceededMessage;
+import com.tskirbutas.jticket.core.messaging.BookingPaymentMessage;
 
 public interface BookingMessagePublisher {
-    void publishBookingPaymentSucceeded(BookingPaymentSucceededMessage message);
+    void publishBookingPaymentMessage(BookingPaymentMessage message);
 }

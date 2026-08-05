@@ -1,5 +1,7 @@
 package com.tskirbutas.jticket.emailservice.email;
 
+import com.tskirbutas.jticket.core.messaging.BookingPaymentFailedMessage;
+import com.tskirbutas.jticket.core.messaging.BookingPaymentMessage;
 import com.tskirbutas.jticket.core.messaging.BookingPaymentSucceededMessage;
 import com.tskirbutas.jticket.core.messaging.kafka.KafkaConstants;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -16,8 +18,13 @@ class BookingKafkaMessageListener {
         this.emailService = emailService;
     }
 
-    @KafkaListener(topics = KafkaConstants.TOPIC_BOOKING_PAYMENT_SUCCEEDED, groupId = GROUP_ID)
-    void handleBookingPaymentSucceeded(BookingPaymentSucceededMessage message) {
-        emailService.handlePaymentSucceeded(message.bookingId(), message.paymentId(), message.email());
+    @KafkaListener(topics = KafkaConstants.TOPIC_BOOKING_PAYMENT_PROCESSED, groupId = GROUP_ID)
+    public void handleBookingPaymentProcessed(BookingPaymentMessage event) {
+        switch (event) {
+            case BookingPaymentSucceededMessage message ->
+                    emailService.handlePaymentSucceeded(message.bookingId(), message.paymentId(), message.email());
+            case BookingPaymentFailedMessage message ->
+                    emailService.handlePaymentFailed(message.bookingId(), message.paymentId(), message.email(), message.failureReason());
+        }
     }
 }

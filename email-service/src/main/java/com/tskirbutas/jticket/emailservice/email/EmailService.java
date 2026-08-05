@@ -2,6 +2,9 @@ package com.tskirbutas.jticket.emailservice.email;
 
 import org.springframework.stereotype.Service;
 
+/**
+ * TODO: does not check if already sent -- needs persistence, another db
+ */
 @Service
 public class EmailService {
 
@@ -12,8 +15,12 @@ public class EmailService {
     }
 
     void handlePaymentSucceeded(long bookingId, long paymentId, String email) {
-        //TODO: check if already sent -- needs persistence, another db
-        emailSender.sendConfirmationEmailForBooking(email,
+        emailSender.sendEmail(email,
                 String.format("Booking %s confirmed\nPayment ref: %s", bookingId, paymentId));
+    }
+
+    void handlePaymentFailed(long bookingId, long paymentId, String email, String failureReason) {
+        emailSender.sendEmail(email,
+                String.format("Booking %s payment failed\nPayment ref: %s\nFailure reason: %s", bookingId, paymentId, failureReason));
     }
 }

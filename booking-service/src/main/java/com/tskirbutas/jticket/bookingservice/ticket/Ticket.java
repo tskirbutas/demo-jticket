@@ -74,11 +74,11 @@ public class Ticket {
         this.status = status;
     }
 
-    public void reserve() {
+    public void reserved() {
         this.status = TicketStatus.RESERVED;
     }
 
-    public void makeAvailable() {
+    public void madeAvailable() {
         this.status = TicketStatus.AVAILABLE;
     }
 

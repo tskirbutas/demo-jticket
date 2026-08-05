@@ -8,6 +8,7 @@ import com.tskirbutas.jticket.bookingservice.ticket.Ticket;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketRepository;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketStatus;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketUnavailableException;
+import com.tskirbutas.jticket.core.messaging.BookingPaymentFailedMessage;
 import com.tskirbutas.jticket.core.messaging.BookingPaymentSucceededMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -80,7 +81,7 @@ class BookingService {
             }
         }
         //Reserve tickets
-        tickets.forEach(Ticket::reserve);
+        tickets.forEach(Ticket::reserved);
 
         //Create booking
         var booking = new Booking(
@@ -123,7 +124,7 @@ class BookingService {
         var expiredBookingItems = bookingItemRepository.findWithTicketByBookingIdIn(
                 expiredBookings.stream().map(Booking::getId).toList());
         for (BookingItem bookingItem : expiredBookingItems) {
-            bookingItem.getTicket().makeAvailable();
+            bookingItem.getTicket().madeAvailable();
         }
     }
 
@@ -152,16 +153,23 @@ class BookingService {
         // Lock booking row for status update
         var booking = bookingRepository.findByIdForUpdate(bookingId)
                 .orElseThrow(() -> new NotFoundException(String.format("Booking %s not found", bookingId)));
+
+        // Lock ticket row(s) for status update
+        var bookingTickets = bookingItemRepository.findTicketsByBookingIdForUpdate(bookingId);
         if (success) {
             booking.paymentSucceeded();
 
-            // Lock ticket row(s) for status update
-            bookingItemRepository.findTicketsByBookingIdForUpdate(bookingId).forEach(Ticket::sold);
+            bookingTickets.forEach(Ticket::sold);
 
-            bookingMessagePublisher.publishBookingPaymentSucceeded(new BookingPaymentSucceededMessage(booking.getId(),paymentId, booking.getBuyerEmail()));
+            bookingMessagePublisher.publishBookingPaymentMessage(
+                    new BookingPaymentSucceededMessage(booking.getId(), paymentId, booking.getBuyerEmail()));
         } else {
-            // Do nothing -- allow to retry the payment
-            // TODO: At the time of writing this allows for infinite retries -- needs to be addressed
+            booking.cancelled();
+
+            bookingTickets.forEach(Ticket::madeAvailable);
+
+            bookingMessagePublisher.publishBookingPaymentMessage(
+                    new BookingPaymentFailedMessage(booking.getId(), paymentId, booking.getBuyerEmail(), failureReason));
         }
     }
 }

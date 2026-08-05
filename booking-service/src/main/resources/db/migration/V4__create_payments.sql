@@ -4,6 +4,6 @@ CREATE TABLE IF NOT EXISTS payments
     booking_id BIGINT NOT NULL REFERENCES bookings(id),
     status VARCHAR(20) NOT NULL
         DEFAULT 'IN_PROGRESS'
-        CHECK (status IN ('IN_PROGRESS', 'SUCCEEDED', 'EXPIRED')),
+        CHECK (status IN ('IN_PROGRESS', 'SUCCEEDED', 'FAILED')),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
