@@ -101,6 +101,14 @@ class BookingService {
         return new CreateBookingResponse(savedBooking.getId(), bookingItems);
     }
 
+    /**
+     * Expires pending bookings. Bookings with status BookingStatus.PAYMENT_INITIALIZED are NOT expired. Otherwise,
+     * there's an edge case where BookingStatus.PAYMENT_INITIALIZED bookings might get expired and same tickets rebooked
+     * before payment completes due to slow payment processor or just bad timing.
+     * PAYMENT_INITIALIZED indicates that the payment processor is doing work which is expected to complete in timely
+     * manner. When it does not, support should be contacted and admins could manually release such tickets.
+     * Future codebase improvements should handle this
+     */
     @Transactional
     void expireBookings() {
         // Lock bookings for expiration check
@@ -112,7 +120,8 @@ class BookingService {
         for (Booking booking : expiredBookings) {
             booking.expire();
         }
-        var expiredBookingItems = bookingItemRepository.findWithTicketByBookingIdIn(expiredBookings.stream().map(Booking::getId).toList());
+        var expiredBookingItems = bookingItemRepository.findWithTicketByBookingIdIn(
+                expiredBookings.stream().map(Booking::getId).toList());
         for (BookingItem bookingItem : expiredBookingItems) {
             bookingItem.getTicket().makeAvailable();
         }
@@ -151,7 +160,8 @@ class BookingService {
 
             bookingMessagePublisher.publishBookingPaymentSucceeded(new BookingPaymentSucceededMessage(booking.getId(),paymentId, booking.getBuyerEmail()));
         } else {
-            //Do nothing -- allow to retry the payment.
+            // Do nothing -- allow to retry the payment
+            // TODO: At the time of writing this allows for infinite retries -- needs to be addressed
         }
     }
 }

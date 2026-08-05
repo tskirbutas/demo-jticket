@@ -96,8 +96,7 @@ public class BookingServiceIT {
         assertThat(bookings.get(0).getStatus()).isEqualTo(BookingStatus.IN_PROGRESS);
 
         //validate booking items
-        var items = bookingItemRepository.findAll();
-        assertThat(items).hasSize(2);
+        assertThat(bookingItemRepository.count()).isEqualTo(2);
 
         //validate ticket statuses
         t1 = ticketRepository.findById(t1.getId()).orElseThrow();
@@ -121,12 +120,10 @@ public class BookingServiceIT {
                 .andExpect(status().isConflict());
 
         //validate bookings
-        var bookings = bookingRepository.findAll();
-        assertThat(bookings).hasSize(0);
+        assertThat(bookingRepository.count()).isEqualTo(0);
 
         //validate booking items
-        var items = bookingItemRepository.findAll();
-        assertThat(items).hasSize(0);
+        assertThat(bookingItemRepository.count()).isEqualTo(0);
 
         //validate ticket statuses
         t1 = ticketRepository.findById(t1.getId()).orElseThrow();
@@ -150,12 +147,10 @@ public class BookingServiceIT {
                 .andExpect(status().isNotFound());
 
         //validate bookings
-        var bookings = bookingRepository.findAll();
-        assertThat(bookings).hasSize(0);
+        assertThat(bookingRepository.count()).isEqualTo(0);
 
         //validate booking items
-        var items = bookingItemRepository.findAll();
-        assertThat(items).hasSize(0);
+        assertThat(bookingItemRepository.count()).isEqualTo(0);
 
         //validate ticket statuses
         t1 = ticketRepository.findById(t1.getId()).orElseThrow();
@@ -179,12 +174,10 @@ public class BookingServiceIT {
                 .andExpect(status().isBadRequest());
 
         //validate bookings
-        var bookings = bookingRepository.findAll();
-        assertThat(bookings).hasSize(0);
+        assertThat(bookingRepository.count()).isEqualTo(0);
 
         //validate booking items
-        var items = bookingItemRepository.findAll();
-        assertThat(items).hasSize(0);
+        assertThat(bookingItemRepository.count()).isEqualTo(0);
 
         //validate ticket statuses
         t1 = ticketRepository.findById(t1.getId()).orElseThrow();
@@ -245,6 +238,61 @@ public class BookingServiceIT {
         var bookings = bookingRepository.findAll();
         assertThat(bookings).hasSize(1);
         assertThat(bookings.get(0).getStatus()).isEqualTo(BookingStatus.IN_PROGRESS);
+    }
+
+    @Test
+    void expireBookings_shouldWork() {
+        var t1 = ticketRepository.save(new Ticket(1, "A1", BigDecimal.valueOf(44.99), TicketStatus.RESERVED));
+        var t2 = ticketRepository.save(new Ticket(1, "A2", BigDecimal.valueOf(44.99), TicketStatus.AVAILABLE));
+        var t3 = ticketRepository.save(new Ticket(1, "A3", BigDecimal.valueOf(44.99), TicketStatus.RESERVED));
+        var t4 = ticketRepository.save(new Ticket(1, "A4", BigDecimal.valueOf(44.99), TicketStatus.RESERVED));
+        var t5 = ticketRepository.save(new Ticket(1, "A5", BigDecimal.valueOf(44.99), TicketStatus.SOLD));
+        var t6 = ticketRepository.save(new Ticket(1, "A6", BigDecimal.valueOf(44.99), TicketStatus.RESERVED));
+
+        var booking1 = bookingRepository.save(new Booking("buyer123@demo.com", BookingStatus.IN_PROGRESS, Instant.now().minusSeconds(60 * 15)));
+        bookingItemRepository.save(new BookingItem(booking1, t1));
+        bookingItemRepository.save(new BookingItem(booking1, t3));
+
+        var booking2 = bookingRepository.save(new Booking("buyer321@demo.com", BookingStatus.IN_PROGRESS, Instant.now().plusSeconds(60 * 15)));
+        bookingItemRepository.save(new BookingItem(booking2, t4));
+
+        var booking3 = bookingRepository.save(new Booking("buyer789@demo.com", BookingStatus.PAYMENT_SUCCEEDED, Instant.now().minusSeconds(60 * 15)));
+        bookingItemRepository.save(new BookingItem(booking3, t5));
+
+        var booking4 = bookingRepository.save(new Booking("buyer789@demo.com", BookingStatus.PAYMENT_INITIALIZED, Instant.now().minusSeconds(60 * 15)));
+        bookingItemRepository.save(new BookingItem(booking4, t6));
+
+
+        bookingService.expireBookings();
+
+
+        //validate bookings -- all bookings should be kept
+        assertThat(bookingRepository.count()).isEqualTo(4);
+        booking1 = bookingRepository.findById(booking1.getId()).orElseThrow();
+        assertThat(booking1.getStatus()).isEqualTo(BookingStatus.EXPIRED);
+        booking2 = bookingRepository.findById(booking2.getId()).orElseThrow();
+        assertThat(booking2.getStatus()).isEqualTo(BookingStatus.IN_PROGRESS);
+        booking3 = bookingRepository.findById(booking3.getId()).orElseThrow();
+        assertThat(booking3.getStatus()).isEqualTo(BookingStatus.PAYMENT_SUCCEEDED);
+        booking4 = bookingRepository.findById(booking4.getId()).orElseThrow();
+        assertThat(booking4.getStatus()).isEqualTo(BookingStatus.PAYMENT_INITIALIZED);
+
+        //validate booking items -- all booking items should be kept
+        assertThat(bookingItemRepository.count()).isEqualTo(5);
+
+        //validate ticket statuses
+        t1 = ticketRepository.findById(t1.getId()).orElseThrow();
+        assertThat(t1.getStatus()).as("ticket reservation should be expired").isEqualTo(TicketStatus.AVAILABLE);
+        t2 = ticketRepository.findById(t2.getId()).orElseThrow();
+        assertThat(t2.getStatus()).as("ticket not booked so should be unchanged").isEqualTo(TicketStatus.AVAILABLE);
+        t3 = ticketRepository.findById(t3.getId()).orElseThrow();
+        assertThat(t3.getStatus()).as("ticket reservation should be expired").isEqualTo(TicketStatus.AVAILABLE);
+        t4 = ticketRepository.findById(t4.getId()).orElseThrow();
+        assertThat(t4.getStatus()).as("tickets that are not due should not be expired").isEqualTo(TicketStatus.RESERVED);
+        t5 = ticketRepository.findById(t5.getId()).orElseThrow();
+        assertThat(t5.getStatus()).as("sold tickets should stay sold").isEqualTo(TicketStatus.SOLD);
+        t6 = ticketRepository.findById(t6.getId()).orElseThrow();
+        assertThat(t6.getStatus()).as("while payment is being processed should not expire").isEqualTo(TicketStatus.RESERVED);
     }
 
     @Test
