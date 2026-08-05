@@ -129,6 +129,14 @@ The default ports:
 - event-service:8090
 - booking-service:8080
 
+NOTE! The project is still under development and may change initial schema from time to time. For released projects this should be handled with separate migration files.
+
+As this project is still not considered to be released, reset the containers if you encounter schema violation problems after project updates
+```bash
+docker compose down
+docker compose up
+```
+
 ### Maven
 To run service from terminal with maven, make sure to install local dependencies (and whenever you update them):
 ```bash
