@@ -6,14 +6,17 @@ import com.tskirbutas.jticket.core.messaging.BookingPaymentSucceededMessage;
 import com.tskirbutas.jticket.core.messaging.kafka.KafkaConstants;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.context.ImportTestcontainers;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.serializer.JacksonJsonSerializer;
+import org.springframework.kafka.test.utils.ContainerTestUtils;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.testcontainers.kafka.KafkaContainer;
 
@@ -34,6 +37,15 @@ class EmailServiceIT {
     @Autowired
     private KafkaContainer kafka;
 
+    @Autowired
+    private KafkaListenerEndpointRegistry kafkaListenerRegistry;
+
+    @BeforeEach
+    void setUp() {
+        kafkaListenerRegistry.getListenerContainers()
+                .forEach(container -> ContainerTestUtils.waitForAssignment(container, 1));
+    }
+
     @Test
     void consumeBookingPaymentSucceededMessage_shouldInvokeEmailSender() {
         var message = new BookingPaymentSucceededMessage(123L, 987L, "buyer1@demo.com");
@@ -48,7 +60,7 @@ class EmailServiceIT {
     @Test
     void consumeBookingPaymentFailedMessage_shouldInvokeEmailSender() {
         var failureReason = "Could not transfer funds";
-        var message = new BookingPaymentFailedMessage(123L, 987L, "buyer1@demo.com", failureReason);
+        var message = new BookingPaymentFailedMessage(321L, 987L, "buyer1@demo.com", failureReason);
         var producer = createTestKafkaProducer();
         producer.send(KafkaConstants.TOPIC_BOOKING_PAYMENT_PROCESSED, message);
 
@@ -66,7 +78,7 @@ class EmailServiceIT {
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonSerializer.class);
 
         var producer = new DefaultKafkaProducerFactory<String, T>(props);
-        return new KafkaTemplate<>(producer);
+        return new KafkaTemplate<>(producer, true);
     }
 
 }

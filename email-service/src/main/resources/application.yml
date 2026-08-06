@@ -11,4 +11,4 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
       properties:
         spring.json.trusted.packages: '*' #serialization is done by trusted source
-      auto-offset-reset: earliest
+      auto-offset-reset: latest
