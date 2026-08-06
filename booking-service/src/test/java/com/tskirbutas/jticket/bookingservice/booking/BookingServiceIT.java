@@ -5,8 +5,11 @@ import com.tskirbutas.jticket.bookingservice.ticket.Ticket;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketRepository;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketStatus;
 import com.tskirbutas.jticket.bookingservice.ticket.TicketUnavailableException;
+import com.tskirbutas.jticket.core.messaging.BookingPaymentFailedMessage;
 import com.tskirbutas.jticket.core.messaging.BookingPaymentMessage;
 import com.tskirbutas.jticket.core.messaging.kafka.KafkaConstants;
+import org.apache.kafka.clients.admin.Admin;
+import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -30,6 +33,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -72,21 +76,13 @@ public class BookingServiceIT {
     @Autowired
     private KafkaContainer kafka;
 
-//    private Consumer<String, BookingPaymentMessage> kafkaConsumer;
-//
-//
-//    @BeforeEach
-//    void setup() {
-//        kafkaConsumer = createTestKafkaConsumer(BookingPaymentMessage.class);
-//        kafkaConsumer.subscribe(List.of(KafkaConstants.TOPIC_BOOKING_PAYMENT_PROCESSED));
-//
-//        // force consumer group join + partition assignment
-//        KafkaTestUtils.getRecords(kafkaConsumer);
-//    }
-
     @AfterEach
     void cleanUp() {
-//        kafkaConsumer.close();
+        var props = new Properties();
+        props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
+        try (Admin kafkaAdmin = Admin.create(props)) {
+            kafkaAdmin.deleteTopics(List.of(KafkaConstants.TOPIC_BOOKING_PAYMENT_PROCESSED));
+        }
         paymentRepository.deleteAllInBatch();
         bookingItemRepository.deleteAllInBatch();
         bookingRepository.deleteAllInBatch();
@@ -450,18 +446,16 @@ public class BookingServiceIT {
         assertThat(t3.getStatus()).isEqualTo(TicketStatus.AVAILABLE);
 
         //validate kafka message published
-        // TODO: introducing another kafka test breaks other due to KafkaTestUtils.getSingleRecord
-        // and AUTO_OFFSET_RESET_CONFIG, "earliest". Need to refactor test setup
-//        try(var kafkaConsumer = createTestKafkaConsumer(BookingPaymentFailedMessage.class)) {
-//            kafkaConsumer.subscribe(List.of(KafkaConstants.TOPIC_BOOKING_PAYMENT_PROCESSED));
-//
-//            var record = KafkaTestUtils.getSingleRecord(kafkaConsumer, KafkaConstants.TOPIC_BOOKING_PAYMENT_PROCESSED);
-//            assertThat(record.value().paymentId()).isEqualTo(payment.getId());
-//            assertThat(record.value().failureReason()).isNotEmpty();
-//            // Note that is acceptable for the failure reason to be transformed before hitting kafka
-//            // so this could fail in the future
-////            assertThat(record.value().failureReason()).isEqualTo(webhookRequest.failureReason());
-//        }
+        try(var kafkaConsumer = createTestKafkaConsumer(BookingPaymentFailedMessage.class)) {
+            kafkaConsumer.subscribe(List.of(KafkaConstants.TOPIC_BOOKING_PAYMENT_PROCESSED));
+
+            var record = KafkaTestUtils.getSingleRecord(kafkaConsumer, KafkaConstants.TOPIC_BOOKING_PAYMENT_PROCESSED);
+            assertThat(record.value().paymentId()).isEqualTo(payment.getId());
+            assertThat(record.value().failureReason()).isNotEmpty();
+            // Note that is acceptable for the failure reason to be transformed before hitting kafka
+            // so this could fail in the future
+//            assertThat(record.value().failureReason()).isEqualTo(webhookRequest.failureReason());
+        }
     }
 
     <T> Consumer<String, T> createTestKafkaConsumer(Class<T> valueDefaultType) {
